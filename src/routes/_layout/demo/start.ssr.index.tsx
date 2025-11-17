@@ -1,7 +1,12 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 
-export const Route = createFileRoute('/demo/start/ssr/')({
+export const Route = createFileRoute('/_layout/demo/start/ssr/')({
   component: RouteComponent,
+  loader: async () => {
+    return {
+      message: 'Hello from the server!',
+    };
+  },
 });
 
 function RouteComponent() {

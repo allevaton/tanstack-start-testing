@@ -1,5 +1,4 @@
-import { Link } from '@tanstack/react-router';
-
+import { createFileRoute, Link, Outlet } from '@tanstack/react-router';
 import { useState } from 'react';
 import {
   ChevronDown,
@@ -12,7 +11,11 @@ import {
   X,
 } from 'lucide-react';
 
-export default function Header() {
+export const Route = createFileRoute('/_layout')({
+  component: RouteComponent,
+});
+
+function RouteComponent() {
   const [isOpen, setIsOpen] = useState(false);
   const [groupedExpanded, setGroupedExpanded] = useState<
     Record<string, boolean>
@@ -172,6 +175,8 @@ export default function Header() {
           {/* Demo Links End */}
         </nav>
       </aside>
+
+      <Outlet />
     </>
   );
 }

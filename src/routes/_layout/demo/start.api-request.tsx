@@ -1,21 +1,22 @@
-import { useEffect, useState } from 'react';
+import { createFileRoute, getRouteApi } from '@tanstack/react-router';
 
-import { createFileRoute } from '@tanstack/react-router';
+const nameApi = getRouteApi('/demo/api/names');
 
 function getNames() {
-  return fetch('/demo/api/names').then((res) => res.json());
+  return fetch(nameApi.id).then((res) => res.json() as Promise<string[]>);
 }
 
-export const Route = createFileRoute('/demo/start/api-request')({
+export const Route = createFileRoute('/_layout/demo/start/api-request')({
   component: Home,
+  loader: async () => {
+    return {
+      names: await getNames(),
+    };
+  },
 });
 
 function Home() {
-  const [names, setNames] = useState<Array<string>>([]);
-
-  useEffect(() => {
-    getNames().then(setNames);
-  }, []);
+  const { names } = Route.useLoaderData();
 
   return (
     <div

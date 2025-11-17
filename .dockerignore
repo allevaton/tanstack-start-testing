@@ -1,0 +1,10 @@
+node_modules
+.output
+dist
+.git
+.idea
+.vscode
+*.log
+.env
+.env.*
+!.env.example
