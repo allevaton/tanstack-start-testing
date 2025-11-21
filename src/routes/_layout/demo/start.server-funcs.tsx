@@ -1,12 +1,14 @@
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { useState } from 'react';
-import { createFileRoute, useRouter } from '@tanstack/react-router';
+import { createFileRoute, redirect, useRouter } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 import { XIcon } from 'lucide-react';
 import { z } from 'zod';
 import { parseValidationError } from '@/utils/parseValidationError.ts';
-import { fetcher } from '@/lib/fetcher/fetcher.ts';
+import { ApiResponse, fetcher } from '@/lib/fetcher/fetcher.ts';
+import { getClientInfo } from '@/lib/client-info/client-info.ts';
+import { getLogger } from '@/lib/logging/logger.ts';
 
 /*
 const loggingMiddleware = createMiddleware().server(
@@ -39,8 +41,11 @@ async function readTodos() {
 
 const getTodos = createServerFn({
   method: 'GET',
-}).handler(async ({ context }) => {
-  context.logger.info('Fetching todos from server');
+}).handler(async () => {
+  const clientInfo = getClientInfo();
+  const logger = getLogger('getTodos');
+  logger.info('Fetching todos from server');
+  logger.info('Client info', clientInfo);
   return await readTodos();
 });
 
@@ -65,24 +70,39 @@ const removeTodo = createServerFn({ method: 'POST' })
 
 export const Route = createFileRoute('/_layout/demo/start/server-funcs')({
   component: Home,
-  loader: async ({ context: { queryClient } }) => {
-    await queryClient.ensureQueryData({
-      queryKey: ['test'],
-      queryFn: async () => {
-        const r = await fetcher(
-          'https://api.staging.sidelineswap.com/v1/facet_items',
-        );
+  validateSearch: z.object({ test: z.string().optional() }),
+  loaderDeps: ({ search }) => search,
+  loader: async ({ context, location, deps: { test } }) => {
+    const logger = getLogger('server-funcs.loader');
+    logger.info(`Full context object: ${JSON.stringify(context, null, 2)}`);
 
-        return await r.json();
-      },
-    });
-    return await getTodos();
+    if (test == '1') {
+      logger.info('Test search param is 1');
+      throw redirect({
+        search: {},
+      });
+    }
+
+    const [todos, facetResponse] = await Promise.all([
+      getTodos(),
+      fetcher<ApiResponse<{ id: number; name: string }[]>>(
+        'https://api.staging.sidelineswap.com/v1/facet_items',
+      ),
+    ]);
+
+    return {
+      todos,
+      items: facetResponse.data || [],
+    };
   },
+  staleTime: 10_000,
 });
 
 function Home() {
   const router = useRouter();
-  let todos = Route.useLoaderData();
+  let { todos } = Route.useLoaderData();
+
+  const search = Route.useSearch();
 
   const [todo, setTodo] = useState('');
   const [error, setError] = useState('');
@@ -125,6 +145,8 @@ function Home() {
           'radial-gradient(50% 50% at 20% 60%, #23272a 0%, #18181b 50%, #000000 100%)',
       }}
     >
+      <Route.Link search={{ test: '1' }}>Test</Route.Link>
+
       <div className="w-full max-w-2xl p-8 rounded-xl backdrop-blur-md bg-black/50 shadow-xl border-8 border-black/10">
         <h1 className="text-2xl mb-4">Start Server Functions - Todo Example</h1>
         <ul className="mb-4 space-y-2">

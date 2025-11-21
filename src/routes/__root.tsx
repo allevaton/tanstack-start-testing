@@ -9,10 +9,14 @@ import appCss from '../styles.css?url';
 import * as React from 'react';
 import { QueryClient } from '@tanstack/react-query';
 import { ReactQueryDevtoolsPanel } from '@tanstack/react-query-devtools';
+import { getLogger } from '@/lib/logging/logger.ts';
+import { clientIdMiddleware } from '@/lib/client-info/client-id.middleware.ts';
 
-export const Route = createRootRouteWithContext<{
+type RootContext = {
   queryClient: QueryClient;
-}>()({
+};
+
+export const Route = createRootRouteWithContext<RootContext>()({
   head: () => ({
     meta: [
       {
@@ -34,7 +38,20 @@ export const Route = createRootRouteWithContext<{
     ],
   }),
 
+  beforeLoad: async () => {
+    const logger = getLogger('__root.beforeLoad');
+    logger.info('Setting a test context value');
+
+    return {
+      test: 'test',
+    };
+  },
+  server: {
+    middleware: [clientIdMiddleware],
+  },
+
   shellComponent: RootDocument,
+  notFoundComponent: () => <div className="m-16">Not Found</div>,
 });
 
 function RootDocument({ children }: { children: React.ReactNode }) {

@@ -1,4 +1,7 @@
 import * as winston from 'winston';
+import { getClientInfo } from '@/lib/client-info/client-info.ts';
+import { getRequest } from '@tanstack/start-server-core';
+import { createIsomorphicFn } from '@tanstack/react-start';
 
 export interface Logger {
   debug(message: string, meta?: object): void;
@@ -24,13 +27,18 @@ const developmentFormat = winston.format.combine(
   winston.format.colorize(),
   winston.format.errors({ stack: true }),
   winston.format.printf(
-    ({ timestamp, level, message, metadata, stack, requestId }) => {
+    ({ timestamp, context, level, message, metadata, stack, requestId }) => {
       const metaStr =
         Object.keys(metadata || {}).length > 0
           ? ` ${JSON.stringify(metadata)}`
           : '';
       const stackStr = stack ? `\n${stack}` : '';
-      return `[${timestamp}] ${level} {${requestId}}: ${message}${metaStr}${stackStr}`;
+
+      const clientOrServerStr =
+        typeof window === 'undefined' ? 'SERVER' : 'CLIENT';
+
+      const left = `${timestamp} [${clientOrServerStr}:${context}] ${level}:`;
+      return `${left} ${message}${metaStr}${stackStr}`;
     },
   ),
 );
@@ -48,14 +56,17 @@ const winstonLogger = winston.createLogger({
   exitOnError: false,
 });
 
-export function createLogger(request: Request, requestId: string): Logger {
+function createLogger(request: Request, context: string): Logger {
   const url = new URL(request.url);
+  const clientInfo = getClientInfo(request);
 
   const baseMeta = {
-    requestId,
+    context,
+    requestId: clientInfo.requestId,
+    clientId: clientInfo.clientId,
     method: request.method,
     url: url.pathname + url.search,
-    userAgent: request.headers.get('user-agent'),
+    userAgent: clientInfo.userAgent,
     ip:
       request.headers.get('x-forwarded-for') ||
       request.headers.get('x-real-ip'),
@@ -83,8 +94,9 @@ export function createLogger(request: Request, requestId: string): Logger {
         const duration = performance.now() - startTime;
         winstonLogger.info(`Timer: ${label}`, {
           ...baseMeta,
-          duration: `${duration.toFixed(2)}ms`,
-          label,
+          metadata: {
+            duration: `${duration.toFixed(2)}ms`,
+          },
         });
       };
     },
@@ -92,3 +104,26 @@ export function createLogger(request: Request, requestId: string): Logger {
 
   return logger;
 }
+
+export const getLogger = createIsomorphicFn()
+  .server((context: string) => createLogger(getRequest(), context))
+  .client((context: string) => {
+    const logger: Logger = {
+      debug: (message, meta) => console.debug(`[${context}] ${message}`, meta),
+      info: (message, meta) => console.info(`[${context}] ${message}`, meta),
+      warn: (message, meta) => console.warn(`[${context}] ${message}`, meta),
+      error: (message, meta) => console.error(`[${context}] ${message}`, meta),
+      http: (message, meta) => console.log(`[${context}] ${message}`, meta),
+      timer: (label: string) => {
+        const startTime = performance.now();
+        return () => {
+          const duration = performance.now() - startTime;
+          console.info(
+            `[${context}] Timer: ${label} - ${duration.toFixed(2)}ms`,
+          );
+        };
+      },
+    };
+
+    return logger;
+  });

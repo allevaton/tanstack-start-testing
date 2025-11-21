@@ -1,14 +1,17 @@
 import { createIsomorphicFn } from '@tanstack/react-start';
 import { getRequest } from '@tanstack/start-server-core';
+import { getKnownCookie } from '@/lib/cookies/cookies.ts';
 
 export interface ClientInfo {
   clientId: string;
+  requestId?: string;
   userAgent: string;
 }
 
 export function createServerSideClientInfo(request: Request): ClientInfo {
   const clientInfo: ClientInfo = {
-    clientId: request.headers.get('x-client-id') || 'unknown',
+    clientId: getKnownCookie('sls_client_id') || 'unknown',
+    requestId: request.headers.get('x-request-id') || 'unknown',
     userAgent: request.headers.get('user-agent') || 'unknown',
   };
 
@@ -16,10 +19,12 @@ export function createServerSideClientInfo(request: Request): ClientInfo {
 }
 
 export const getClientInfo = createIsomorphicFn()
-  .server(() => createServerSideClientInfo(getRequest()))
+  .server((request?: Request) =>
+    createServerSideClientInfo(request || getRequest()),
+  )
   .client(() => {
     const clientInfo: ClientInfo = {
-      clientId: 'unknown',
+      clientId: getKnownCookie('sls_client_id') || 'unknown',
       userAgent: navigator.userAgent,
     };
 
