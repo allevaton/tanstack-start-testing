@@ -71,24 +71,26 @@ const removeTodo = createServerFn({ method: 'POST' })
 export const Route = createFileRoute('/_layout/demo/start/server-funcs')({
   component: Home,
   validateSearch: z.object({ test: z.string().optional() }),
-  loaderDeps: ({ search }) => search,
-  loader: async ({ context, location, deps: { test } }) => {
+  loaderDeps: ({ search }) => ({ test: !!search.test }),
+  loader: async ({ context, deps: { test } }) => {
     const logger = getLogger('server-funcs.loader');
     logger.info(`Full context object: ${JSON.stringify(context, null, 2)}`);
 
-    if (test == '1') {
+    if (test) {
       logger.info('Test search param is 1');
       throw redirect({
         search: {},
       });
     }
 
+    const timer = logger.timer('server-funcs.loader total time');
     const [todos, facetResponse] = await Promise.all([
       getTodos(),
       fetcher<ApiResponse<{ id: number; name: string }[]>>(
         'https://api.staging.sidelineswap.com/v1/facet_items',
       ),
     ]);
+    timer();
 
     return {
       todos,
@@ -101,8 +103,6 @@ export const Route = createFileRoute('/_layout/demo/start/server-funcs')({
 function Home() {
   const router = useRouter();
   let { todos } = Route.useLoaderData();
-
-  const search = Route.useSearch();
 
   const [todo, setTodo] = useState('');
   const [error, setError] = useState('');

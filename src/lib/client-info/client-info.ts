@@ -8,7 +8,7 @@ export interface ClientInfo {
   userAgent: string;
 }
 
-export function createServerSideClientInfo(request: Request): ClientInfo {
+function createServerSideClientInfo(request: Request): ClientInfo {
   const clientInfo: ClientInfo = {
     clientId: getKnownCookie('sls_client_id') || 'unknown',
     requestId: request.headers.get('x-request-id') || 'unknown',

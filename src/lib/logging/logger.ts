@@ -27,17 +27,14 @@ const developmentFormat = winston.format.combine(
   winston.format.colorize(),
   winston.format.errors({ stack: true }),
   winston.format.printf(
-    ({ timestamp, context, level, message, metadata, stack, requestId }) => {
+    ({ timestamp, context, level, message, metadata, stack }) => {
       const metaStr =
         Object.keys(metadata || {}).length > 0
           ? ` ${JSON.stringify(metadata)}`
           : '';
       const stackStr = stack ? `\n${stack}` : '';
 
-      const clientOrServerStr =
-        typeof window === 'undefined' ? 'SERVER' : 'CLIENT';
-
-      const left = `${timestamp} [${clientOrServerStr}:${context}] ${level}:`;
+      const left = `${timestamp} [${context}] ${level}:`;
       return `${left} ${message}${metaStr}${stackStr}`;
     },
   ),
@@ -72,7 +69,7 @@ function createLogger(request: Request, context: string): Logger {
       request.headers.get('x-real-ip'),
   };
 
-  const logger: Logger = {
+  return {
     debug: (message, metadata = {}) => {
       winstonLogger.debug(message, { ...baseMeta, metadata });
     },
@@ -100,15 +97,13 @@ function createLogger(request: Request, context: string): Logger {
         });
       };
     },
-  };
-
-  return logger;
+  } as Logger;
 }
 
 export const getLogger = createIsomorphicFn()
   .server((context: string) => createLogger(getRequest(), context))
   .client((context: string) => {
-    const logger: Logger = {
+    return {
       debug: (message, meta) => console.debug(`[${context}] ${message}`, meta),
       info: (message, meta) => console.info(`[${context}] ${message}`, meta),
       warn: (message, meta) => console.warn(`[${context}] ${message}`, meta),
@@ -123,7 +118,5 @@ export const getLogger = createIsomorphicFn()
           );
         };
       },
-    };
-
-    return logger;
+    } as Logger;
   });

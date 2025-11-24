@@ -76,6 +76,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
               name: 'React Query',
               render: <ReactQueryDevtoolsPanel />,
             },
+            {
+              name: 'SidelineSwap',
+              render: <div>SidelineSwap Dev tool</div>,
+            },
           ]}
         />
         <Scripts />
